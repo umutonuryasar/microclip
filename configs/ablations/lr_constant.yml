@@ -1,0 +1,3 @@
+_base_: ../base.yml
+run_name: abl_lr_constant
+train: {schedule: constant, epochs: 10}

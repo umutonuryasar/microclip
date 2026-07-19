@@ -1,0 +1,4 @@
+_base_: ../base.yml
+run_name: softmax_b128
+loss: {type: softmax}
+train: {batch_size: 128}

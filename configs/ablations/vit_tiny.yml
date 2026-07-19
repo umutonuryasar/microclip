@@ -1,0 +1,3 @@
+_base_: ../base.yml
+run_name: abl_vit_tiny
+model: {image_encoder: vit_tiny}

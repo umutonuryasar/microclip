@@ -1,0 +1,4 @@
+_base_: ../base.yml
+run_name: sigmoid_b128
+loss: {type: sigmoid}
+train: {batch_size: 128}

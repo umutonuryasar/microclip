@@ -1,0 +1,4 @@
+_base_: ../base.yml
+run_name: abl_init_xavier
+model: {init: xavier}
+train: {epochs: 10}

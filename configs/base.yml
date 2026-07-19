@@ -1,0 +1,53 @@
+# MicroCLIP base config. Specific runs override fields (deep-merged by src/microclip/config.py).
+run_name: base
+seed: 42
+
+data:
+  root: data/coco
+  train_images: train2017
+  val_images: val2017
+  train_ann: annotations/captions_train2017.json
+  val_ann: annotations/captions_val2017.json
+  image_size: 224
+  max_text_len: 64
+  num_workers: 4
+
+tokenizer:
+  vocab_size: 16000
+  path: artifacts/tokenizer/bpe16k.json
+
+model:
+  embed_dim: 256
+  image_encoder: resnet18        # resnet18 | vit_tiny
+  text_encoder:
+    layers: 4
+    d_model: 256
+    heads: 4
+    ffn_mult: 4
+    dropout: 0.1
+  init: default                  # default | xavier | he
+
+loss:
+  type: sigmoid                  # sigmoid | softmax
+  # SigLIP init: t' = log(10), b = -10
+  logit_scale_init: 2.302585
+  logit_bias_init: -10.0
+
+train:
+  batch_size: 512
+  epochs: 30
+  optimizer: adamw               # adamw | sgd
+  lr: 5.0e-4
+  weight_decay: 0.2
+  betas: [0.9, 0.98]
+  momentum: 0.9                  # used only for sgd
+  schedule: warmup_cosine        # warmup_cosine | constant
+  warmup_steps: 2000
+  grad_clip: 1.0
+  amp_dtype: bf16
+  ckpt_every_steps: 500          # Colab-proofing: frequent last.pt saves
+  out_dir: runs
+
+wandb:
+  project: microclip
+  enabled: true
