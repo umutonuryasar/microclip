@@ -22,7 +22,10 @@ from tqdm import tqdm
 
 
 class Trainer:
-    def __init__(self, model, loss_fn, train_ds, val_ds, cfg: dict, device: str = "cuda"):
+    def __init__(self, model, loss_fn, train_ds, val_ds, cfg: dict,
+                 device: str | None = None):
+        if device is None:
+            device = "cuda" if torch.cuda.is_available() else "cpu"
         self.model = model.to(device)
         self.loss_fn = loss_fn
         self.cfg = cfg
@@ -44,7 +47,10 @@ class Trainer:
         self.scheduler = build_scheduler(self.optimizer, cfg, total_steps)
 
         self.amp_dtype = {"bf16": torch.bfloat16, "fp16": torch.float16}[t["amp_dtype"]]
-        self.scaler = torch.cuda.amp.GradScaler(enabled=(self.amp_dtype == torch.float16))
+        self.device_type = "cuda" if self.device.startswith("cuda") else "cpu"
+        # Loss scaling only matters for fp16 on CUDA; bf16/CPU run unscaled.
+        scaler_enabled = self.amp_dtype == torch.float16 and self.device_type == "cuda"
+        self.scaler = torch.amp.GradScaler(self.device_type, enabled=scaler_enabled)
 
         self.epoch = 0
         self.global_step = 0
@@ -76,7 +82,7 @@ class Trainer:
                 "best_val": self.best_val,
                 "rng": {
                     "torch": torch.get_rng_state(),
-                    "cuda": torch.cuda.get_rng_state_all(),
+                    "cuda": torch.cuda.get_rng_state_all() if torch.cuda.is_available() else [],
                     "numpy": np.random.get_state(),
                     "python": random.getstate(),
                 },
@@ -89,7 +95,7 @@ class Trainer:
         last = self.out_dir / "last.pt"
         if not last.exists():
             return
-        state = torch.load(last, map_location=self.device)
+        state = torch.load(last, map_location=self.device, weights_only=False)
         self.model.load_state_dict(state["model"])
         self.optimizer.load_state_dict(state["optimizer"])
         self.scheduler.load_state_dict(state["scheduler"])
@@ -98,38 +104,79 @@ class Trainer:
         self.global_step = state["global_step"]
         self.best_val = state["best_val"]
         torch.set_rng_state(state["rng"]["torch"])
-        torch.cuda.set_rng_state_all(state["rng"]["cuda"])
+        if torch.cuda.is_available() and len(state["rng"]["cuda"]) > 0:
+            torch.cuda.set_rng_state_all(state["rng"]["cuda"])
         np.random.set_state(state["rng"]["numpy"])
         random.setstate(state["rng"]["python"])
         print(f"[resume] epoch={self.epoch} step={self.global_step} best_val={self.best_val:.4f}")
 
     # ---------------- loops ----------------
 
+    def _wandb(self):
+        if not self.cfg["wandb"]["enabled"]:
+            return None
+        import wandb
+        return wandb if wandb.run is not None else None
+
     def train_one_epoch(self) -> float:
-        """TODO(week 1): the actual step. Per batch:
-        1. move (images, token_ids, pad_mask) to device
-        2. with torch.autocast(self.device, dtype=self.amp_dtype):
-               img, txt = self.model(images, token_ids, pad_mask)
-               loss = self.loss_fn(img, txt, self.model)
-        3. scaler.scale(loss).backward(); unscale; clip to cfg train.grad_clip;
-           scaler.step(optimizer); scaler.update(); optimizer.zero_grad();
-           scheduler.step(); self.global_step += 1
-        4. every cfg train.ckpt_every_steps: self._save(self.out_dir/'last.pt')
-        5. log loss + lr + logit_scale.exp() to wandb (watch logit_scale —
-           if it explodes, temperature learning is broken)
-        Return mean epoch loss.
-        """
-        raise NotImplementedError
+        self.model.train()
+        t = self.cfg["train"]
+        wb = self._wandb()
+        total, n = 0.0, 0
+        pbar = tqdm(self.train_loader, desc=f"epoch {self.epoch}", leave=False)
+        for images, token_ids, pad_mask in pbar:
+            images = images.to(self.device, non_blocking=True)
+            token_ids = token_ids.to(self.device, non_blocking=True)
+            pad_mask = pad_mask.to(self.device, non_blocking=True)
+
+            with torch.autocast(self.device_type, dtype=self.amp_dtype):
+                img, txt = self.model(images, token_ids, pad_mask)
+                loss = self.loss_fn(img, txt, self.model)
+
+            self.optimizer.zero_grad(set_to_none=True)
+            self.scaler.scale(loss).backward()
+            self.scaler.unscale_(self.optimizer)
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), t["grad_clip"])
+            self.scaler.step(self.optimizer)
+            self.scaler.update()
+            self.scheduler.step()
+            self.global_step += 1
+
+            item = loss.item()
+            total += item
+            n += 1
+            pbar.set_postfix(loss=f"{item:.4f}")
+            if wb is not None:
+                # Watch logit_scale — if it explodes, temperature learning is broken.
+                wb.log({
+                    "train/loss": item,
+                    "train/lr": self.scheduler.get_last_lr()[0],
+                    "train/logit_scale": self.model.logit_scale.exp().item(),
+                }, step=self.global_step)
+            if self.global_step % t["ckpt_every_steps"] == 0:
+                self._save(self.out_dir / "last.pt")
+        return total / max(n, 1)
 
     @torch.no_grad()
     def validate(self) -> float:
-        """TODO(week 1): mean val loss over self.val_loader (same forward,
-        no grad). Keep it to loss only — retrieval metrics run separately via
+        """Mean val loss only — retrieval metrics run separately via
         scripts/evaluate.py, they're too slow for every epoch."""
-        raise NotImplementedError
+        self.model.eval()
+        total, n = 0.0, 0
+        for images, token_ids, pad_mask in self.val_loader:
+            images = images.to(self.device, non_blocking=True)
+            token_ids = token_ids.to(self.device, non_blocking=True)
+            pad_mask = pad_mask.to(self.device, non_blocking=True)
+            with torch.autocast(self.device_type, dtype=self.amp_dtype):
+                img, txt = self.model(images, token_ids, pad_mask)
+                loss = self.loss_fn(img, txt, self.model)
+            total += loss.item()
+            n += 1
+        return total / max(n, 1)
 
     def fit(self) -> None:
         epochs = self.cfg["train"]["epochs"]
+        wb = self._wandb()
         while self.epoch < epochs:
             train_loss = self.train_one_epoch()
             val_loss = self.validate()
@@ -138,5 +185,7 @@ class Trainer:
             if val_loss < self.best_val:
                 self.best_val = val_loss
                 self._save(self.out_dir / "best.pt", weights_only=True)
+            if wb is not None:
+                wb.log({"val/loss": val_loss, "epoch": self.epoch}, step=self.global_step)
             print(f"epoch {self.epoch}/{epochs} train={train_loss:.4f} "
                   f"val={val_loss:.4f} best={self.best_val:.4f}")

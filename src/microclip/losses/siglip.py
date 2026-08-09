@@ -11,9 +11,8 @@ Why it matters here: no softmax over the batch → each pair's gradient does not
 depend on batch composition → far weaker batch-size dependence than InfoNCE.
 This is the property the whole project interrogates at small scale.
 
->>> IMPLEMENT-ME. Numerical hint: -log(sigmoid(x)) == softplus(-x) — use
->>> F.softplus, never log(sigmoid(...)) directly (underflows for large -x).
->>> tests/test_losses.py checks value + symmetry properties.
+Numerical note: -log(sigmoid(x)) == softplus(-x); softplus is used instead of
+log(sigmoid(...)), which underflows for large -x.
 """
 import torch
 import torch.nn.functional as F
@@ -21,12 +20,9 @@ import torch.nn.functional as F
 
 def siglip_loss(img_feats: torch.Tensor, txt_feats: torch.Tensor,
                 logit_scale: torch.Tensor, logit_bias: torch.Tensor) -> torch.Tensor:
-    """img_feats, txt_feats: (B, D), already L2-normalized. Returns scalar.
-
-    TODO:
-    1. logits = logit_scale.exp() * img_feats @ txt_feats.t() + logit_bias
-    2. labels z: 2*eye(B) - 1   (+1 diagonal, -1 off-diagonal)
-    3. loss = softplus(-z * logits).sum() / B     # sum over pairs, / batch
-       (SigLIP normalizes by B, not B^2 — keep it, it matches the paper.)
-    """
-    raise NotImplementedError
+    """img_feats, txt_feats: (B, D), already L2-normalized. Returns scalar."""
+    B = img_feats.size(0)
+    logits = logit_scale.exp() * img_feats @ txt_feats.t() + logit_bias  # (B, B)
+    z = 2.0 * torch.eye(B, device=logits.device, dtype=logits.dtype) - 1.0
+    # SigLIP normalizes by B, not B^2 — matches the paper.
+    return F.softplus(-z * logits).sum() / B

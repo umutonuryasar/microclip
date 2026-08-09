@@ -28,10 +28,12 @@ class MicroCLIP(nn.Module):
         self._init_weights(m.get("init", "default"))
 
     def _init_weights(self, scheme: str) -> None:
+        # Covers Linear AND Conv2d so the init ablation touches the whole
+        # model (ResNet backbone included), not just projection heads.
         if scheme == "default":
             return
         for mod in self.modules():
-            if isinstance(mod, nn.Linear):
+            if isinstance(mod, (nn.Linear, nn.Conv2d)):
                 if scheme == "xavier":
                     nn.init.xavier_uniform_(mod.weight)
                 elif scheme == "he":
