@@ -1,6 +1,7 @@
 # MicroCLIP — Project Proposal
 
-*CS230 final project format: Proposal → Milestone → Final Report*
+*Self-paced study following the CS230 & CS231n final project format:
+Proposal → Milestone → Final Report. Not officially enrolled in either course.*
 *Author: Umut Onur Yaşar · Date: 2026-07*
 
 ## 1. Problem statement

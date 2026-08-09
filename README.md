@@ -2,8 +2,8 @@
 
 Training a CLIP-style vision-language model **from scratch** on a single-GPU budget.
 
-> **Status:** Week 1 — skeleton / smoke test phase.
-> CS230 final project · [Proposal](docs/PROPOSAL.md)
+> **Status:** implementation complete — model, losses, trainer, eval. Runs pending.
+> Self-paced project in CS230 & CS231n final-project format · [Proposal](docs/PROPOSAL.md)
 
 ## What this is
 
@@ -42,9 +42,9 @@ python scripts/smoke_test.py --config configs/base.yml
 # 3. Full training run
 python scripts/train.py --config configs/sigmoid_b512.yml
 
-# 4. Evaluation
-python scripts/evaluate.py --checkpoint runs/<run>/best.pt --task zeroshot
-python scripts/evaluate.py --checkpoint runs/<run>/best.pt --task retrieval
+# 4. Evaluation (config must match the checkpoint's training config)
+python scripts/evaluate.py --checkpoint runs/<run>/best.pt --config configs/<run>.yml --task zeroshot
+python scripts/evaluate.py --checkpoint runs/<run>/best.pt --config configs/<run>.yml --task retrieval
 ```
 
 Training resumes automatically from `runs/<run>/last.pt` if present (Colab-proof).
