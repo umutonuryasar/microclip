@@ -3,7 +3,7 @@ __pycache__/
 .venv/
 runs/
 wandb/
-data/
+/data/
 artifacts/tokenizer/*.json
 *.pt
 .DS_Store
