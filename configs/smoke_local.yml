@@ -1,0 +1,7 @@
+# Local smoke-test config: points the 1K-sample "train" slice at val2017 so
+# train2017 (18 GB) is not needed on the laptop. Everything else inherits.
+_base_: base.yml
+run_name: smoke_local
+data:
+  train_images: val2017
+  train_ann: annotations/captions_val2017.json

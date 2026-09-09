@@ -103,9 +103,9 @@ class Trainer:
         self.epoch = state["epoch"]
         self.global_step = state["global_step"]
         self.best_val = state["best_val"]
-        torch.set_rng_state(state["rng"]["torch"])
+        torch.set_rng_state(state["rng"]["torch"].cpu())
         if torch.cuda.is_available() and len(state["rng"]["cuda"]) > 0:
-            torch.cuda.set_rng_state_all(state["rng"]["cuda"])
+            torch.cuda.set_rng_state_all([s.cpu() for s in state["rng"]["cuda"]])
         np.random.set_state(state["rng"]["numpy"])
         random.setstate(state["rng"]["python"])
         print(f"[resume] epoch={self.epoch} step={self.global_step} best_val={self.best_val:.4f}")
