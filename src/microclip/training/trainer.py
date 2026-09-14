@@ -11,6 +11,7 @@ Resume contract (learned the hard way on rt-detr-kd):
 """
 from __future__ import annotations
 
+import math
 import os
 import random
 from pathlib import Path
@@ -139,6 +140,10 @@ class Trainer:
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), t["grad_clip"])
             self.scaler.step(self.optimizer)
             self.scaler.update()
+            # Clamp temperature like CLIP: an unbounded logit_scale can drift up,
+            # saturate the softmax (InfoNCE arm) and silently vanish gradients.
+            with torch.no_grad():
+                self.model.logit_scale.clamp_(max=math.log(100.0))
             self.scheduler.step()
             self.global_step += 1
 
