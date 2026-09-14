@@ -68,6 +68,7 @@ def run_one(cfg: dict, loss_type: str) -> None:
             first_loss = epoch_loss
         losses.append(epoch_loss)
         trainer.epoch += 1
+        trainer.batch_idx = 0
         trainer._save(trainer.out_dir / "last.pt")
     val_loss = trainer.validate()
     assert torch.isfinite(torch.tensor(losses)).all(), f"non-finite loss: {losses}"

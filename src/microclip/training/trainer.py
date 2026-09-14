@@ -18,8 +18,27 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Sampler
 from tqdm import tqdm
+
+
+class EpochBatchSampler(Sampler[list[int]]):
+    """Stable per-epoch shuffle, with a cursor for checkpoint recovery."""
+
+    def __init__(self, size: int, batch_size: int, seed: int):
+        self.size, self.batch_size, self.seed = size, batch_size, seed
+        self.epoch = 0
+        self.start_batch = 0
+
+    def __len__(self):
+        return self.size // self.batch_size - self.start_batch
+
+    def __iter__(self):
+        order = torch.randperm(self.size, generator=torch.Generator().manual_seed(
+            self.seed + self.epoch)).tolist()
+        for batch in range(self.start_batch, self.size // self.batch_size):
+            start = batch * self.batch_size
+            yield order[start:start + self.batch_size]
 
 
 class Trainer:
@@ -35,15 +54,18 @@ class Trainer:
         self.out_dir = Path(t["out_dir"]) / cfg["run_name"]
         self.out_dir.mkdir(parents=True, exist_ok=True)
 
+        self.train_ds = train_ds
+        self.train_batches = EpochBatchSampler(len(train_ds), t["batch_size"], cfg["seed"])
         self.train_loader = DataLoader(
-            train_ds, batch_size=t["batch_size"], shuffle=True, drop_last=True,
-            num_workers=cfg["data"]["num_workers"], pin_memory=True)
+            train_ds, batch_sampler=self.train_batches,
+            num_workers=cfg["data"]["num_workers"], pin_memory=True,
+            generator=torch.Generator().manual_seed(cfg["seed"]))
         self.val_loader = DataLoader(
             val_ds, batch_size=t["batch_size"], shuffle=False,
             num_workers=cfg["data"]["num_workers"], pin_memory=True)
 
         self.optimizer = self._build_optimizer()
-        total_steps = len(self.train_loader) * t["epochs"]
+        total_steps = len(self.train_batches) * t["epochs"]
         from .schedulers import build_scheduler
         self.scheduler = build_scheduler(self.optimizer, cfg, total_steps)
 
@@ -54,6 +76,7 @@ class Trainer:
         self.scaler = torch.amp.GradScaler(self.device_type, enabled=scaler_enabled)
 
         self.epoch = 0
+        self.batch_idx = 0
         self.global_step = 0
         self.best_val = float("inf")
         self._maybe_resume()
@@ -79,6 +102,7 @@ class Trainer:
                 "scheduler": self.scheduler.state_dict(),
                 "scaler": self.scaler.state_dict(),
                 "epoch": self.epoch,
+                "batch_idx": self.batch_idx,
                 "global_step": self.global_step,
                 "best_val": self.best_val,
                 "rng": {
@@ -102,6 +126,7 @@ class Trainer:
         self.scheduler.load_state_dict(state["scheduler"])
         self.scaler.load_state_dict(state["scaler"])
         self.epoch = state["epoch"]
+        self.batch_idx = state.get("batch_idx", 0)
         self.global_step = state["global_step"]
         self.best_val = state["best_val"]
         torch.set_rng_state(state["rng"]["torch"].cpu())
@@ -124,6 +149,11 @@ class Trainer:
         t = self.cfg["train"]
         wb = self._wandb()
         total, n = 0.0, 0
+        self.train_batches.epoch = self.epoch
+        self.train_batches.start_batch = self.batch_idx
+        if hasattr(self.train_ds, "epoch"):
+            self.train_ds.epoch = self.epoch
+            self.train_ds.seed = self.cfg["seed"]
         pbar = tqdm(self.train_loader, desc=f"epoch {self.epoch}", leave=False)
         for images, token_ids, pad_mask in pbar:
             images = images.to(self.device, non_blocking=True)
@@ -146,6 +176,7 @@ class Trainer:
                 self.model.logit_scale.clamp_(max=math.log(100.0))
             self.scheduler.step()
             self.global_step += 1
+            self.batch_idx += 1
 
             item = loss.item()
             total += item
@@ -186,10 +217,11 @@ class Trainer:
             train_loss = self.train_one_epoch()
             val_loss = self.validate()
             self.epoch += 1
-            self._save(self.out_dir / "last.pt")
+            self.batch_idx = 0
             if val_loss < self.best_val:
                 self.best_val = val_loss
                 self._save(self.out_dir / "best.pt", weights_only=True)
+            self._save(self.out_dir / "last.pt")
             if wb is not None:
                 wb.log({"val/loss": val_loss, "epoch": self.epoch}, step=self.global_step)
             print(f"epoch {self.epoch}/{epochs} train={train_loss:.4f} "

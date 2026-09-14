@@ -26,6 +26,8 @@ class CocoCaptions(Dataset):
         self.tokenizer = tokenizer
         self.max_text_len = max_text_len
         self.train = train
+        self.epoch = 0
+        self.seed = 0
         self.transform = build_transforms(image_size, train=train)
 
         with open(Path(root) / ann_file) as f:
@@ -42,6 +44,20 @@ class CocoCaptions(Dataset):
         return len(self.items)
 
     def __getitem__(self, idx: int):
+        if self.train:
+            # Stable per-sample randomness, independent of worker prefetch.
+            py_state = random.getstate()
+            with torch.random.fork_rng(devices=[]):
+                seed = self.seed + self.epoch * len(self) + idx
+                random.seed(seed)
+                torch.manual_seed(seed)
+                try:
+                    return self._get_item(idx)
+                finally:
+                    random.setstate(py_state)
+        return self._get_item(idx)
+
+    def _get_item(self, idx: int):
         file_name, captions = self.items[idx]
         image = Image.open(self.images_dir / file_name).convert("RGB")
         image = self.transform(image)
