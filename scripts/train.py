@@ -36,9 +36,19 @@ def main():
 
     if cfg["wandb"]["enabled"]:
         import wandb
-        wandb.init(project=cfg["wandb"]["project"], name=cfg["run_name"], config=cfg)
+        # id=run_name + resume="allow": a preempted run that restarts continues the
+        # SAME W&B run instead of opening a new one and leaving the old "crashed".
+        wandb.init(project=cfg["wandb"]["project"], name=cfg["run_name"],
+                   id=cfg["run_name"], resume="allow", config=cfg)
 
-    Trainer(model, loss_fn, train_ds, val_ds, cfg).fit()
+    try:
+        Trainer(model, loss_fn, train_ds, val_ds, cfg).fit()
+    finally:
+        # Mark the run finished even if fit() raised — otherwise W&B shows "crashed".
+        if cfg["wandb"]["enabled"]:
+            import wandb
+            if wandb.run is not None:
+                wandb.finish()
 
 
 if __name__ == "__main__":
