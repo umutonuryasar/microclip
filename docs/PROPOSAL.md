@@ -77,3 +77,20 @@ sampled per image per epoch). Val: COCO val2017 captions.
 - **Colab preemption** → checkpoint-resume from day one.
 - **Modest absolute scores** → framed up front as compute-normalized study.
 - **Softmax runs degenerating at small batch** → that *is* a result; report it.
+
+---
+
+## Postscript (2026-09) — what changed between proposal and result
+
+Kept for the record; the [README](../README.md) is the final report.
+
+- **Research question answered in the negative.** At this scale softmax InfoNCE
+  matched or beat sigmoid at every batch size, and the gap widened as batch
+  shrank. Reported as a non-replication of SigLIP's small-batch advantage, not
+  a refutation.
+- **Flickr30k retrieval was dropped.** Only COCO 5K val retrieval was run.
+- **CIFAR-10 zero-shot never reached the 55–70% band.** Results are near chance
+  and seed-noise dominated; they are reported but not used for any claim.
+- **HF Space demo and blog post were not built.**
+- **Seeds:** the six main runs became 3-seed for b128/b512 (42/43/44); b256 and
+  all ablations stayed single-seed.
