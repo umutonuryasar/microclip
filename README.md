@@ -12,9 +12,7 @@ zero-shot CIFAR-10/100.
 
 ![license](https://img.shields.io/badge/license-MIT-blue)
 ![python](https://img.shields.io/badge/python-%E2%89%A5%203.10-blue)
-![tracking](https://img.shields.io/badge/W%26B-microclip-yellow)
-<!-- W&B project name is `microclip` (configs/base.yml). Replace the badge with a
-link to the public project page if/when the runs are made public. -->
+[![tracking](https://img.shields.io/badge/W%26B-microclip-yellow)](https://wandb.ai/umutonuryasar-independent/microclip)
 
 ---
 
@@ -195,6 +193,21 @@ seeds. Rows with `n=1` are single-seed (indicative only).
 - **Batch size has no strong effect in this range** for either loss (b512 ≈ b256 ≈
   b128 within noise). b256 is single-seed, so no "optimal batch" claim is made.
 
+### Training dynamics
+
+![validation loss curves](results/training_curves.png)
+
+Validation loss over 30 epochs (3 seeds, mean ± std). **This figure is a
+training-health and variance check, not a performance comparison.** Validation loss
+is not comparable across the two panels (different objectives) *or across batch sizes
+within a panel*: a smaller batch means a smaller in-batch negative pool, which
+mechanically lowers the contrastive loss — lower ≠ better. The objective/batch
+comparison is the retrieval table above (fixed eval batch = 64). What this figure
+*does* show: (1) all runs converge smoothly, and (2) the visibly wider sigmoid band
+at batch 128 — higher seed-to-seed variance at small batch, consistent with the
+retrieval results. Live curves (incl. learned temperature `logit_scale`):
+[W&B project](https://wandb.ai/umutonuryasar-independent/microclip).
+
 ### Ablations
 
 All ablations are single-seed (`n=1`) — indicative, not conclusive. Two baselines
@@ -260,6 +273,12 @@ made — the CIFAR spread is dominated by noise at this scale.
   Both are written by the evaluation cell of `notebooks/01_colab_train.ipynb`
   (to `Drive/MyDrive/microclip/`, then copied here). Seeds are grouped by
   stripping the `_s<NN>` suffix from the run folder name.
+
+- **Training curves:** [`results/training_curves.png`](results/training_curves.png)
+  is regenerated from [`results/wandb_curves.csv`](results/wandb_curves.csv) by
+  [`scripts/plot_wandb_curves.py`](scripts/plot_wandb_curves.py), which pulls the
+  finished seed runs from the public
+  [W&B project](https://wandb.ai/umutonuryasar-independent/microclip).
 
 ---
 
