@@ -4,7 +4,6 @@ __pycache__/
 runs/
 wandb/
 /data/
-artifacts/tokenizer/*.json
 *.pt
 .DS_Store
 *.egg-info/
