@@ -36,6 +36,9 @@ class EpochBatchSampler(Sampler[list[int]]):
     def __iter__(self):
         order = torch.randperm(self.size, generator=torch.Generator().manual_seed(
             self.seed + self.epoch)).tolist()
+        # Tail batch is dropped (`size // batch_size`): up to batch_size-1
+        # samples per epoch go unused, but every step then has the same B, which
+        # both losses assume and which keeps step counts identical across seeds.
         for batch in range(self.start_batch, self.size // self.batch_size):
             start = batch * self.batch_size
             yield order[start:start + self.batch_size]

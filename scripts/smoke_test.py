@@ -18,7 +18,7 @@ import torch
 from microclip.config import apply_overrides, load_config
 from microclip.data.coco_captions import CocoCaptions
 from microclip.data.tokenizer import CaptionTokenizer
-from microclip.losses.infonce import build_loss
+from microclip.losses import build_loss
 from microclip.models.microclip import MicroCLIP
 from microclip.training.trainer import Trainer
 

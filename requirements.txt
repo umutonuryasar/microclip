@@ -6,5 +6,6 @@ wandb
 tqdm
 numpy
 pillow
-pycocotools
+
+# Dev only (also available as `pip install -e ".[dev]"`).
 pytest

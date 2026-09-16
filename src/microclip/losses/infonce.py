@@ -17,14 +17,3 @@ def infonce_loss(img_feats: torch.Tensor, txt_feats: torch.Tensor,
     targets = torch.arange(logits.size(0), device=logits.device)
     return 0.5 * (F.cross_entropy(logits, targets) +
                   F.cross_entropy(logits.t(), targets))
-
-
-def build_loss(cfg: dict):
-    """Returns callable(model_outputs...) -> scalar, dispatched on cfg."""
-    from .siglip import siglip_loss
-    kind = cfg["loss"]["type"]
-    if kind == "sigmoid":
-        return lambda img, txt, model: siglip_loss(img, txt, model.logit_scale, model.logit_bias)
-    if kind == "softmax":
-        return lambda img, txt, model: infonce_loss(img, txt, model.logit_scale)
-    raise ValueError(f"Unknown loss type: {kind}")
