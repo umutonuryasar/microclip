@@ -14,6 +14,7 @@ zero-shot CIFAR-10/100.
 ![python](https://img.shields.io/badge/python-%E2%89%A5%203.10-blue)
 [![tracking](https://img.shields.io/badge/W%26B-microclip-yellow)](https://wandb.ai/umutonuryasar-independent/microclip)
 [![demo](https://img.shields.io/badge/%F0%9F%A4%97%20Space-live%20demo-blue)](https://huggingface.co/spaces/umutonuryasar/microclip)
+[![checkpoints](https://img.shields.io/badge/%F0%9F%A4%97%20Model-checkpoints-orange)](https://huggingface.co/umutonuryasar/microclip-checkpoints)
 
 **[Try the live demo](https://huggingface.co/spaces/umutonuryasar/microclip)**: search
 5,000 COCO images with both models side by side, running entirely in your browser.
@@ -154,14 +155,22 @@ Budget ≈ 0.5 GB of Drive per run.
 
 ## Evaluation
 
+Every trained checkpoint is published at
+[huggingface.co/umutonuryasar/microclip-checkpoints](https://huggingface.co/umutonuryasar/microclip-checkpoints), laid out as
+`runs/<run_name>/best.pt`, so the results can be checked without retraining.
+Its model card maps each run to its config and lists an MD5 per file.
+
 ```bash
+# fetch a checkpoint (lands at runs/softmax_b512_s42/best.pt)
+hf download umutonuryasar/microclip-checkpoints runs/softmax_b512_s42/best.pt --local-dir .
+
 # COCO 5K retrieval (Recall@1/5/10, both directions)
 python scripts/evaluate.py --config configs/softmax_b512.yml \
-    --checkpoint runs/softmax_b512/best.pt --task retrieval
+    --checkpoint runs/softmax_b512_s42/best.pt --task retrieval
 
 # zero-shot CIFAR-10/100 top-1
 python scripts/evaluate.py --config configs/softmax_b512.yml \
-    --checkpoint runs/softmax_b512/best.pt --task zeroshot
+    --checkpoint runs/softmax_b512_s42/best.pt --task zeroshot
 ```
 
 `--config` must be the config the checkpoint was trained with (it defines the
@@ -194,7 +203,8 @@ Spaces, even on the free CPU tier. A Gradio version of the same demo
 ### Rebuilding it
 
 Needs the two checkpoints in `weights/` (`softmax_b512_s42.pt`,
-`sigmoid_b512_s42.pt`), COCO `val2017` plus its caption annotations under
+`sigmoid_b512_s42.pt`, which are `runs/{softmax,sigmoid}_b512_s42/best.pt` in
+the [checkpoints repo](https://huggingface.co/umutonuryasar/microclip-checkpoints)), COCO `val2017` plus its caption annotations under
 `data/coco/`, Node.js for the JavaScript checks, and the demo extras:
 
 ```bash
@@ -321,6 +331,10 @@ made — the CIFAR spread is dominated by noise at this scale.
   resumes bit-for-bit from `last.pt`.
 - **Model selection:** `best.pt` = lowest validation-loss checkpoint over 30 epochs.
 - **Hardware / precision:** Colab A100, bf16 autocast.
+- **Checkpoints:** all 20 trained runs (the 12 main-matrix seed runs, both b256
+  runs and the six ablations) are published at
+  [huggingface.co/umutonuryasar/microclip-checkpoints](https://huggingface.co/umutonuryasar/microclip-checkpoints), byte-identical to
+  the training outputs.
 - **Canonical checkpoint:** `softmax_b512` (seed 42) — chosen as a *representative*
   member of a 3-seed group, deliberately **not** the single highest-scoring run
   (`softmax_b256`, `n=1`), to avoid cherry-picking.
