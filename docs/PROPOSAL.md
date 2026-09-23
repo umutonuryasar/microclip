@@ -91,6 +91,8 @@ Kept for the record; the [README](../README.md) is the final report.
 - **Flickr30k retrieval was dropped.** Only COCO 5K val retrieval was run.
 - **CIFAR-10 zero-shot never reached the 55–70% band.** Results are near chance
   and seed-noise dominated; they are reported but not used for any claim.
-- **HF Space demo and blog post were not built.**
+- **The HF Space demo was built, as a static in-browser app** rather than on the
+  RTX 3050: Hugging Face no longer hosts Gradio Spaces for free, so the text
+  encoders run as int8 ONNX in the visitor's browser. The blog post was not written.
 - **Seeds:** the six main runs became 3-seed for b128/b512 (42/43/44); b256 and
   all ablations stayed single-seed.

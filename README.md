@@ -13,6 +13,10 @@ zero-shot CIFAR-10/100.
 ![license](https://img.shields.io/badge/license-MIT-blue)
 ![python](https://img.shields.io/badge/python-%E2%89%A5%203.10-blue)
 [![tracking](https://img.shields.io/badge/W%26B-microclip-yellow)](https://wandb.ai/umutonuryasar-independent/microclip)
+[![demo](https://img.shields.io/badge/%F0%9F%A4%97%20Space-live%20demo-blue)](https://huggingface.co/spaces/umutonuryasar/microclip)
+
+**[Try the live demo](https://huggingface.co/spaces/umutonuryasar/microclip)**: search
+5,000 COCO images with both models side by side, running entirely in your browser.
 
 ---
 
@@ -166,6 +170,66 @@ corpus for quick checks; `--device` defaults to CUDA when available. Results are
 printed as JSON. Evaluation always loads `best.pt` (lowest val-loss checkpoint).
 The "Evaluation — seed-grouped" cell of `notebooks/01_colab_train.ipynb` runs
 both tasks over every Drive-mirrored run and aggregates across seeds.
+
+---
+
+## Demo
+
+The [live demo](https://huggingface.co/spaces/umutonuryasar/microclip) is a static
+Hugging Face Space: text-to-image search over COCO val2017, with the softmax and
+sigmoid models (batch 512, seed 42) answering every query side by side. It runs
+entirely client-side, with no server:
+
+- **Text encoders** are exported to ONNX, quantized to int8 and run with
+  onnxruntime-web, which is vendored into the Space rather than loaded from a CDN.
+- **Image embeddings** for all 5,000 images are precomputed, so a search is one
+  text-encoder pass plus a dot product.
+- **The tokenizer** is re-implemented in JavaScript (`demo/static/tokenizer.js`)
+  and reads the same `bpe16k.json` as training.
+
+It is static because Hugging Face now requires a PRO subscription to host Gradio
+Spaces, even on the free CPU tier. A Gradio version of the same demo
+(`demo/app.py`) is kept for local use.
+
+### Rebuilding it
+
+Needs the two checkpoints in `weights/` (`softmax_b512_s42.pt`,
+`sigmoid_b512_s42.pt`), COCO `val2017` plus its caption annotations under
+`data/coco/`, Node.js for the JavaScript checks, and the demo extras:
+
+```bash
+pip install -e ".[demo]"
+python -m playwright install firefox chromium
+
+PYTHONPATH=src python scripts/precompute_demo.py   # embeddings, thumbnails, safetensors
+PYTHONPATH=src python scripts/export_onnx.py       # ONNX + int8, with parity checks
+bash scripts/fetch_ort.sh                          # vendor onnxruntime-web
+python scripts/build_static.py --check             # assemble demo/_static
+```
+
+Every step that changes the numeric path is verified against PyTorch rather than
+assumed:
+
+| Check | Script | What it asserts |
+|---|---|---|
+| ONNX export | `export_onnx.py` | output within 1e-4 of PyTorch (measured ~1e-7) |
+| int8 quantization | `export_onnx.py` | top-1 image unchanged on ≥95% of 200 captions (measured 99%) |
+| JS tokenizer | `check_tokenizer_js.py` | identical ids to Python on 3,000+ captions and edge cases |
+| JS search path | `check_static.py` | same top results as the PyTorch pipeline |
+| Real browsers | `check_static_browser.py` | page loads, searches and renders in Firefox and Chromium |
+
+Serve `demo/_static` locally (`python -m http.server -d demo/_static 8011`) and run
+`python scripts/check_static_browser.py --all` before publishing. Then:
+
+```bash
+hf auth login
+python scripts/publish_space.py --repo-id <user>/microclip --dry-run
+python scripts/publish_space.py --repo-id <user>/microclip
+```
+
+A Space must be **public** for the static demo to work: a private static Space
+authorizes only the HTML page, and browsers withhold its login cookie from the
+page's scripts and assets when it is embedded on huggingface.co.
 
 ---
 

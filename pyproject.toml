@@ -24,6 +24,8 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest"]
+# Building and checking the Hugging Face Space demo (see README, "Demo").
+demo = ["safetensors", "onnx", "onnxruntime", "gradio", "playwright"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
