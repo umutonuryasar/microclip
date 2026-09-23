@@ -7,3 +7,13 @@ wandb/
 *.pt
 .DS_Store
 *.egg-info/
+
+# Demo build artifacts (large: thumbnails, embeddings, exported weights)
+weights/
+demo/assets/
+demo/_build/
+demo/_static/
+demo/static/assets/
+demo/static/vendor/
+demo/_screenshots/
+demo/.node/

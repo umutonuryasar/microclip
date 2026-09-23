@@ -1,0 +1,10 @@
+# Free CPU Space: pull the CPU torch wheels, not the ~2.5 GB CUDA ones.
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch>=2.2
+torchvision>=0.17
+tokenizers>=0.15
+safetensors>=0.4
+numpy
+pyyaml
+pillow
+gradio>=5.0
