@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MicroCLIP</title>
+<meta name="description" content="A CLIP-style image-text model built from scratch, searching COCO in your browser." />
+<style>
+  :root {
+    --bg: #ffffff;
+    --surface: #f6f7f9;
+    --border: #e2e5ea;
+    --text: #14171c;
+    --muted: #5d6673;
+    --accent: #3b5bdb;
+    --accent-soft: #e8ecfd;
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f1115;
+      --surface: #171a21;
+      --border: #272c36;
+      --text: #e7e9ee;
+      --muted: #9aa3b2;
+      --accent: #8ea2ff;
+      --accent-soft: #1d2333;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f1115;
+    --surface: #171a21;
+    --border: #272c36;
+    --text: #e7e9ee;
+    --muted: #9aa3b2;
+    --accent: #8ea2ff;
+    --accent-soft: #1d2333;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 1120px; margin: 0 auto; padding: 40px 16px 64px; }
+  h1 { font-size: 1.9rem; margin: 0 0 6px; letter-spacing: -0.02em; }
+  h2 { font-size: 1.05rem; margin: 28px 0 8px; }
+  p { margin: 0 0 12px; }
+  .lede { color: var(--muted); max-width: 62ch; }
+  .links { display: flex; gap: 14px; flex-wrap: wrap; margin: 14px 0 26px; font-size: 0.9rem; }
+  a { color: var(--accent); }
+
+  .searchbar { display: flex; gap: 8px; flex-wrap: wrap; }
+  input[type="search"] {
+    flex: 1 1 320px; min-width: 0; padding: 12px 14px; font-size: 1rem;
+    color: var(--text); background: var(--surface);
+    border: 1px solid var(--border); border-radius: var(--radius);
+  }
+  input[type="search"]:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  button {
+    padding: 12px 20px; font-size: 1rem; font-weight: 600; cursor: pointer;
+    color: #fff; background: var(--accent); border: 0; border-radius: var(--radius);
+  }
+  button:disabled { opacity: 0.55; cursor: progress; }
+
+  .examples { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0 0; }
+  .chip {
+    padding: 5px 11px; font-size: 0.85rem; cursor: pointer; color: var(--muted);
+    background: var(--surface); border: 1px solid var(--border); border-radius: 999px;
+  }
+  .chip:hover { color: var(--text); border-color: var(--accent); }
+
+  .status { margin: 16px 0 0; min-height: 1.5em; font-size: 0.9rem; color: var(--muted); }
+  .tokens { margin: 6px 0 0; font-size: 0.85rem; color: var(--muted); }
+  .tokens code {
+    padding: 1px 5px; margin-right: 3px; background: var(--accent-soft);
+    border-radius: 4px; font-size: 0.85em; color: var(--text);
+  }
+
+  .columns { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 26px; }
+  @media (max-width: 720px) { .columns { grid-template-columns: 1fr; } }
+  .col h2 { display: flex; align-items: baseline; gap: 8px; margin-top: 0; }
+  .col h2 span { font-weight: 400; font-size: 0.8rem; color: var(--muted); }
+
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  @media (max-width: 520px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+  figure { margin: 0; }
+  figure img {
+    width: 100%; aspect-ratio: 1 / 1; object-fit: cover; display: block;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  }
+  figcaption { margin-top: 4px; font-size: 0.72rem; line-height: 1.35; color: var(--muted); }
+  figcaption b { color: var(--text); font-variant-numeric: tabular-nums; }
+  .placeholder { aspect-ratio: 1 / 1; background: var(--surface); border-radius: 8px; }
+
+  details {
+    margin-top: 34px; padding: 14px 18px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: var(--radius);
+  }
+  summary { cursor: pointer; font-weight: 600; }
+  table { border-collapse: collapse; margin: 10px 0; font-size: 0.9rem; }
+  th, td { padding: 6px 14px 6px 0; text-align: left; border-bottom: 1px solid var(--border); }
+  td:not(:first-child), th:not(:first-child) { font-variant-numeric: tabular-nums; }
+  footer { margin-top: 36px; font-size: 0.82rem; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>MicroCLIP</h1>
+  <p class="lede">
+    A CLIP-style image–text model <strong>built from scratch</strong> on a single-GPU
+    budget: the tokenizer, both encoders, the attention, the two contrastive losses,
+    the training loop and the evaluation are all hand-written, with no pretrained
+    weights. Search 5,000 COCO images by description. Every query runs through
+    <strong>two models that differ only in their loss function</strong>, which is the
+    experiment this project was built to run.
+  </p>
+  <p class="lede">
+    Everything runs in your browser. Nothing is uploaded, and there is no server.
+  </p>
+  <div class="links">
+    <a href="https://github.com/umutonuryasar/microclip">Code and full results</a>
+    <a href="https://wandb.ai/umutonuryasar-independent/microclip">Training curves</a>
+    <a href="https://cocodataset.org">COCO dataset</a>
+  </div>
+
+  <div class="searchbar">
+    <input id="query" type="search" autocomplete="off" enterkeyhint="search"
+           placeholder="a man riding a surfboard on a wave" aria-label="Search COCO images" />
+    <button id="go" disabled>Search</button>
+  </div>
+  <div class="examples" id="examples"></div>
+  <p class="status" id="status">Loading models…</p>
+  <p class="tokens" id="tokens"></p>
+
+  <div class="columns">
+    <section class="col">
+      <h2>Softmax <span>InfoNCE, as in CLIP</span></h2>
+      <div class="grid" id="grid-softmax"></div>
+    </section>
+    <section class="col">
+      <h2>Sigmoid <span>SigLIP</span></h2>
+      <div class="grid" id="grid-sigmoid"></div>
+    </section>
+  </div>
+
+  <details>
+    <summary>How it works, and how well</summary>
+
+    <h2>The pipeline</h2>
+    <p>
+      Your text is split by a 16K byte-level BPE tokenizer trained on COCO captions,
+      re-implemented here in JavaScript and checked against the Python original on
+      thousands of captions. A 4-layer Transformer encoder, written by hand rather
+      than with a framework attention module, reads those tokens, and the hidden state
+      at the end-of-sequence position becomes the sentence vector. The images went
+      through a ResNet-18 trained from random initialization. Both sides project into
+      the same 256-dimensional space and are L2-normalized, so cosine similarity ranks
+      them.
+    </p>
+    <p>
+      Image embeddings were computed offline and ship with the page, so a search is one
+      text-encoder pass plus a dot product against 5,000 vectors. The encoders run as
+      int8-quantized ONNX graphs, which match the full-precision models on 99% of
+      top-1 results at a quarter of the download size.
+    </p>
+
+    <h2>The experiment</h2>
+    <p>
+      SigLIP reports that its sigmoid loss beats softmax at small batch sizes. Tested
+      here at small scale, with identical architecture and data, 3 seeds and batch
+      sizes from 128 to 512, <strong>softmax won at every batch size</strong>, and its
+      lead grew as the batch shrank, the opposite of the hypothesis. That is a
+      non-replication at small scale, not a refutation: SigLIP's advantage is reported
+      at far larger batch and data scales than anything here.
+    </p>
+    <table>
+      <tr><th>COCO 5K retrieval</th><th>Softmax</th><th>Sigmoid</th></tr>
+      <tr><td>Image→text recall@10</td><td>48.2%</td><td>45.6%</td></tr>
+      <tr><td>Text→image recall@1</td><td>10.5%</td><td>10.0%</td></tr>
+      <tr><td>Learned temperature</td><td>18.7</td><td>13.3</td></tr>
+    </table>
+    <p>Both models are batch-512, seed-42, 30 epochs on COCO train2017, 18.6M parameters.</p>
+
+    <h2>What to expect</h2>
+    <p>
+      Absolute quality is modest by design. This is a small model trained from scratch
+      on 118K images, not a production retrieval system. Roughly half of image→text
+      queries land a correct match in the top 10. It has only ever seen COCO, so
+      COCO-like scenes work best and unusual queries return loose matches. Scores shown
+      under each image are cosine similarities, followed by that image's ground-truth
+      COCO caption.
+    </p>
+  </details>
+
+  <footer>
+    Images from the COCO 2017 validation set, shown as thumbnails; captions are CC BY 4.0.
+    Model code and weights are MIT licensed. Built by Umut Onur Yaşar.
+  </footer>
+</main>
+<script type="module" src="app.js"></script>
+</body>
+</html>
