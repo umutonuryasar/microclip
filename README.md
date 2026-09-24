@@ -23,7 +23,7 @@ zero-shot CIFAR-10/100.
 
 ## TL;DR — key findings
 
-Across batch sizes **128–512, 3 seeds each** (seeds 42/43/44), on COCO retrieval:
+At batch sizes **128 and 512 (3 seeds each, seeds 42/43/44)**, plus a single-seed batch-256 run, on COCO retrieval:
 
 1. **Softmax (InfoNCE) matches or beats sigmoid (SigLIP) at every batch size.**
    The gap is well outside seed noise on the strongest metric (I→T R@10: +2.5 pts
@@ -47,7 +47,7 @@ written from scratch (encoders, losses, tokenizer, training loop, retrieval and
 zero-shot eval) and sized so that a full 30-epoch run fits in a single Colab A100
 session. Its purpose is not to be competitive with released CLIP checkpoints but
 to make a single controlled comparison — sigmoid vs softmax contrastive loss —
-cheap enough to repeat across 3 seeds and 3 batch sizes.
+cheap enough to repeat across 3 seeds at two batch sizes (128, 512), with a single-seed run at 256.
 
 - CLIP-style dual encoder trained from scratch on a single GPU (Colab A100).
 - Image encoder: ResNet-18 (from scratch). Text encoder: small transformer over a
